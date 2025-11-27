@@ -1,0 +1,17 @@
+base_url = "https://ravi-sanker.github.io"
+title = "ravi-sanker"
+theme = "apollo"
+
+[markdown]
+highlight_code = false
+
+[extra]
+menu = [
+    { name = "/blog", url = "/blog", weight = 1 },
+    { name = "/about", url = "/about", weight = 2 },
+]
+socials = [
+    { name = "github", url = "https://github.com/ravi-sanker", icon = "github" },
+]
+theme = "toggle"
+favicon = "/favicon.png"
