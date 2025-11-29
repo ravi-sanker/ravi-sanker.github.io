@@ -3,7 +3,7 @@ title = "Why?"
 date = 2025-11-28
 +++
 
-If there's one thing I've learnt from the long list of "projects" I've taken up since my childhood which now remain completely abondoned is that before starting, you must have a strong why. If there isn't, why bother starting at all? Starting a blog is something I've wanted to wanted to do for a very long time and now that I've started one, I thought why not make the first post about the why.
+If there's one thing I've learnt from the long list of "projects" I've taken up since my childhood which now remain completely abondoned, it is that you must have a strong why before starting. If there isn't, why bother starting at all? Starting a blog is something I've wanted to wanted to do for a very long time and now that I've started one, I thought why not make the first post about the why.
 
 A paragragh in [Genius: The Life and Science of Richard Feynman](https://www.goodreads.com/book/show/98685.Genius) has stuck with me since I read it:
 > On the title page he wrote: Notebook Of Things I Don’t Know About. For the first but not the last time he reorganized his knowledge. He worked for weeks at disassembling each branch of physics, oiling the parts, and putting them back together, looking all the while for the raw edges and inconsistencies. He tried to find the essential kernels of each subject.
