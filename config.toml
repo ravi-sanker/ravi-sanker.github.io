@@ -2,9 +2,6 @@ base_url = "https://ravi-sanker.github.io"
 title = "ravi-sanker"
 theme = "apollo"
 
-[markdown]
-highlighting = false
-
 [extra]
 menu = [
     { name = "/blog", url = "/blog", weight = 1 },
