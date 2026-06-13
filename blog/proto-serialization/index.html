@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" class="dark light">
+
+    <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="base" content="https:&#x2F;&#x2F;ravi-sanker.github.io" />
+
+    
+
+    
+
+    
+    
+    
+        <title>
+            
+                Protocol Buffers Encoding
+            
+        </title>
+
+        
+            <meta property="og:title"
+                  content="Protocol Buffers Encoding" />
+        
+    
+
+    
+        
+    
+
+    
+        
+    
+
+    
+    
+        <link rel="icon"
+              type="image/png"
+              href="https://ravi-sanker.github.io/favicon.png" />
+    
+
+    
+    
+        <link href=https://ravi-sanker.github.io/fonts.css rel="stylesheet" />
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+
+    
+    
+
+
+    
+    
+        <link rel="stylesheet"
+              type="text/css"
+              href="https://ravi-sanker.github.io/theme/light.css" />
+        <link id="darkModeStyle"
+              rel="stylesheet"
+              type="text/css"
+              href="https://ravi-sanker.github.io/theme/dark.css" />
+    
+
+    <!-- Set the correct theme in the script -->
+
+    
+        <script src=https://ravi-sanker.github.io/js/themetoggle.js></script>
+
+        
+            <script>
+                setTheme(getSavedTheme());
+            </script>
+        
+    
+
+
+    <link rel="stylesheet"
+          type="text/css"
+          media="screen"
+          href="https://ravi-sanker.github.io/main.css" />
+
+    
+
+    </head>
+
+
+    <body>
+        <div class="left-content">
+            
+            
+        </div>
+
+        <div class="content">
+            <nav>
+    <div class="left-nav">
+        
+            <a href=https:&#x2F;&#x2F;ravi-sanker.github.io>ravi-sanker</a>
+        
+
+
+        <div class="socials">
+            
+                
+            
+            
+                <a rel='me' href="https:&#x2F;&#x2F;github.com&#x2F;ravi-sanker" class="social">
+                    <img alt="github"
+                         src="https://ravi-sanker.github.io/icons/social/github.svg" />
+                </a>
+            
+        </div>
+    </div>
+
+    <div class="right-nav">
+        
+            <a href=https://ravi-sanker.github.io/blog style="margin-right: 0.5em">&#x2F;blog</a>
+        
+            <a href=https://ravi-sanker.github.io/about style="margin-right: 0.5em">&#x2F;about</a>
+        
+
+        
+
+        
+            <a id="dark-mode-toggle"
+               onclick="toggleTheme(); event.preventDefault();"
+               href="#">
+                <img src="https://ravi-sanker.github.io/icons/sun.svg" id="sun-icon" alt="Light" />
+                <img src="https://ravi-sanker.github.io/icons/moon.svg"
+                     id="moon-icon"
+                     style="filter: invert(1)"
+                     alt="Dark" />
+                <img src="https://ravi-sanker.github.io/icons/auto.svg"
+                     id="auto-icon"
+                     style="filter: invert(1)"
+                     alt="Auto" />
+            </a>
+
+            <!-- Initialize the theme toggle icons -->
+            <script>
+                updateItemToggleTheme()
+            </script>
+        
+    </div>
+</nav>
+
+
+            
+            
+    
+    <div class="visible-element-observer-root" data-selector="main article p">
+        <main>
+            <article>
+                <div class="title">
+                    
+                    
+    
+        <div class="page-header">
+            Protocol Buffers Encoding
+        </div>
+    
+
+
+                    <div class="meta">
+                        
+                            Posted on <time>2025-11-29</time>
+                        
+
+
+                        
+
+                        
+
+                        
+
+                        
+                        
+
+                        
+                        
+
+                        
+                        
+
+                        
+
+                    </div>
+                </div>
+
+                
+
+                <section class="body">
+                    <p>If you've ever worked with proto, you might be aware of best practices such as "Don’t Re-use a Tag Number" or "Do Reserve Tag Numbers for Deleted Fields". You might also have questions such as "Is it safe to rename a field?" or "How does proto ensure backward compatiblity of clients when the server updates its contract?". These questions can be answered once we understand how proto sends messages over the wire.</p>
+<p>The most fun way I can think of learning this is to spin up a basic gRPC client and server locally (<a rel="external" href="https://grpc.io/docs/languages/go/quickstart/">guide</a>), and analysing the network packets using Wireshark.</p>
+<h1 id="example-1">Example 1:</h1>
+<p>Let's begin with the following proto definition of the request:</p>
+<pre><code>message HelloRequest {
+  string name = 1;
+}
+</code></pre>
+<p>This is the Wireshark output for the request from the gRPC client to the server:</p>
+<p><img src="/proto-wireshark/0.png" alt="wireshark" /></p>
+<p>Since we are interested in understanding how the proto message is serialized, let's focus on that.</p>
+<pre><code>0a 0b 52 61 76 69 20 53 61 6e 6b 65 72
+</code></pre>
+<p>[52 61 76 69 20 53 61 6e 6b 65 72] clearly maps to "Ravi Sanker", which is the value of the "name" field in the request. 0b is 11 in decimal which is the number of characters in "Ravi Sanker". Since these are all ASCII characters, UTF-8 encoding takes only a byte for each character. So 11 stands for 11 bytes. But what is 0a? Wireshark is telling us it's for something called the "Field Number" and "Wire Type". It's time to refer to the <a rel="external" href="https://protobuf.dev/programming-guides/encoding/">docs</a>.</p>
+<p>According to the docs, each field is serialized into a tag and value. tag is a combination of the field number and the type. The exact formula is:</p>
+<pre><code>tag := (field &lt;&lt; 3) bit-or wire_type [encoded as uint32 varint]
+</code></pre>
+<p>In our example, the field number is 1 and the type is string which falls under the "LEN" wire type which has the ID 2. So using the formula, we get:</p>
+<pre><code>0000 1XXX
+0000 0010
+---------
+0000 1010
+---------
+</code></pre>
+<p>00001010b is 0xA. So this all adds up.</p>
+<p><strong>The important point to note here is that proto does not care about the field name.</strong></p>
+<h1 id="example-2">Example 2:</h1>
+<p>Let's update our request to:</p>
+<pre><code>message HelloRequest {
+  string name = 1;
+
+  reserved 2;
+
+  int32 number = 16;
+}
+</code></pre>
+<p>If the client were to pass <code>name="Ravi Sanker"</code> and <code>number=100</code>, what do you think the serialization would be? Well, since the tag and value for name hasn't changed, I would expect it to be the same as the previous example. For number, since its field number is 16 and the docs say int32 falls under the "VARINT" wire type which has the ID 0, I would expect this field to be 0x80 0x64. 0x80 is the tag and 0x64 is the value.</p>
+<pre><code>1000 0XXX
+0000 0000
+---------
+1000 0000
+---------
+</code></pre>
+<p>Let's take a look at what Wireshark is saying:</p>
+<p><img src="/proto-wireshark/1.png" alt="wireshark" /></p>
+<pre><code>0a 0b 52 61 76 69 20 53 61 6e 6b 65 72 80 01 64
+</code></pre>
+<p>[0a 0b 52 61 76 69 20 53 61 6e 6b 65 72] is expected. But what's the extra 01 doing in [80 01 64]? Do integers have a length field as well? That doesn't make any sense.</p>
+<p>The answer lies in the subtle "encoded as uint32 varint" statement of the formula. Maybe the encoding of 128 is not 128. From the docs, this is how the encoding for uint32 works:</p>
+<pre><code>       1  0000000 (original integer)
+ 0000001  0000000 (split the integer into 7 bits)
+ 0000000  0000001 (convert to little endian)
+10000000 00000001 (add continuation bit)
+0x80     0x01
+</code></pre>
+<p>Now it adds up. But why is the encoding of 100 (0x64) the same? 100 is 0b1100100 which is strictly less than a byte. The varint encoding of such numbers is the number itself.</p>
+<p>Why is this so complicated? An obvious benefit is that we are only using as many bytes as necessary. All integers don't take up the same space. Storing in little endian format improves efficiency, though I don't completely understand why.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>Now coming back to the questions we had, yes, it's perfectly safe to rename fields as proto only cares about the field number and the type. In fact, it's safe to even change the type in some cases. It's not recommended to reuse tag numbers (<code>protoc</code> compiler actually returns an error) as each field is uniquely identified with this number. It's recommended to reserve deleted fields so that fields introduced in the future don't use the same field number and a client that's using the old contract doesn't break.</p>
+<p>Regarding backward compatibility of clients:</p>
+<ul>
+<li>If the client is on a later version of the contract while the server isn't, the server will simply drop the field numbers that it doesn't recognise.
+<ul>
+<li>If you're wondering how it's even possible that the client is on a newer version, this can happen if service A that has a client to service B gets deployed to a higher environment with the latest contract before service B is deployed.</li>
+</ul>
+</li>
+<li>If the client is on an older version, assuming the newer contract has followed the best practices of not updating the field number of an existing field and not updating the type of an existing field to an incompatible type, proto guarantees that the client will be compatible.</li>
+</ul>
+<h1 id="bonus">Bonus</h1>
+<p>Accoring to the <a rel="external" href="https://grpc.io/docs/what-is-grpc/faq/#what-does-grpc-stand-for">FAQ</a>, gRPC stands for gRPC Remote Procedure Calls. So yet another recursive definition of an acronym. But each <a rel="external" href="https://github.com/grpc/grpc/blob/master/doc/g_stands_for.md">release</a> of gRPC defines <code>g</code> to be something different.</p>
+
+                </section>
+            </article>
+        </main>
+    </div>
+
+
+
+            
+                
+            
+
+            
+        </div>
+
+        <div class="right-content">
+            
+    
+    
+
+        </div>
+    </body>
+
+</html>
