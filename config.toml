@@ -3,7 +3,7 @@ title = "ravi-sanker"
 theme = "apollo"
 
 [markdown]
-highlight_code = false
+highlighting = false
 
 [extra]
 menu = [
