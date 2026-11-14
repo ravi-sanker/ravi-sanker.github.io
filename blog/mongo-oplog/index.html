@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" class="dark light">
+
+    <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="base" content="https:&#x2F;&#x2F;ravi-sanker.github.io" />
+
+    
+
+    
+
+    
+    
+    
+        <title>
+            
+                On MongoDB oplog and CDC
+            
+        </title>
+
+        
+            <meta property="og:title"
+                  content="On MongoDB oplog and CDC" />
+        
+    
+
+    
+        
+    
+
+    
+        
+    
+
+    
+    
+        <link rel="icon"
+              type="image/png"
+              href="https://ravi-sanker.github.io/favicon.png" />
+    
+
+    
+    
+        <link href=https://ravi-sanker.github.io/fonts.css rel="stylesheet" />
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+
+    
+    
+
+
+    
+    
+        <link rel="stylesheet"
+              type="text/css"
+              href="https://ravi-sanker.github.io/theme/light.css" />
+        <link id="darkModeStyle"
+              rel="stylesheet"
+              type="text/css"
+              href="https://ravi-sanker.github.io/theme/dark.css" />
+    
+
+    <!-- Set the correct theme in the script -->
+
+    
+        <script src=https://ravi-sanker.github.io/js/themetoggle.js></script>
+
+        
+            <script>
+                setTheme(getSavedTheme());
+            </script>
+        
+    
+
+
+    <link rel="stylesheet"
+          type="text/css"
+          media="screen"
+          href="https://ravi-sanker.github.io/main.css" />
+
+    
+
+    </head>
+
+
+    <body>
+        <div class="left-content">
+            
+            
+        </div>
+
+        <div class="content">
+            <nav>
+    <div class="left-nav">
+        
+            <a href=https:&#x2F;&#x2F;ravi-sanker.github.io>ravi-sanker</a>
+        
+
+
+        <div class="socials">
+            
+                
+            
+            
+                <a rel='me' href="https:&#x2F;&#x2F;github.com&#x2F;ravi-sanker" class="social">
+                    <img alt="github"
+                         src="https://ravi-sanker.github.io/icons/social/github.svg" />
+                </a>
+            
+        </div>
+    </div>
+
+    <div class="right-nav">
+        
+            <a href=https://ravi-sanker.github.io/blog style="margin-right: 0.5em">&#x2F;blog</a>
+        
+            <a href=https://ravi-sanker.github.io/about style="margin-right: 0.5em">&#x2F;about</a>
+        
+
+        
+
+        
+            <a id="dark-mode-toggle"
+               onclick="toggleTheme(); event.preventDefault();"
+               href="#">
+                <img src="https://ravi-sanker.github.io/icons/sun.svg" id="sun-icon" alt="Light" />
+                <img src="https://ravi-sanker.github.io/icons/moon.svg"
+                     id="moon-icon"
+                     style="filter: invert(1)"
+                     alt="Dark" />
+                <img src="https://ravi-sanker.github.io/icons/auto.svg"
+                     id="auto-icon"
+                     style="filter: invert(1)"
+                     alt="Auto" />
+            </a>
+
+            <!-- Initialize the theme toggle icons -->
+            <script>
+                updateItemToggleTheme()
+            </script>
+        
+    </div>
+</nav>
+
+
+            
+            
+    
+    <div class="visible-element-observer-root" data-selector="main article p">
+        <main>
+            <article>
+                <div class="title">
+                    
+                    
+    
+        <div class="page-header">
+            On MongoDB oplog and CDC
+        </div>
+    
+
+
+                    <div class="meta">
+                        
+                            Posted on <time>2026-11-14</time>
+                        
+
+
+                        
+
+                        
+
+                        
+
+                        
+                        
+
+                        
+                        
+
+                        
+                        
+
+                        
+
+                    </div>
+                </div>
+
+                
+
+                <section class="body">
+                    <p>This post aims to answer the following questions:</p>
+<ol>
+<li>How exactly does MongoDB propogate the writes in the primary to the secondaries?</li>
+<li>If customers want to build a CDC (Change Data Capture) pipeline out of the writes in order to perform async actions, how does MongoDB facilitate that?</li>
+</ol>
+<p>I was actually researching (2) and realised the answer is closely tied to (1).</p>
+<h1 id="oplog">Oplog</h1>
+<p>Let's start off from the absolute basics. In order to have fault tolernace and also scale your reads (in case you can't easily vertically scale your DB), you start adding secondary DBs which are supposed to hold the same data as your primary DB, but with a bit of lag. All your writes go to the primary DB, but you can configure your reads to go to the secondary DBs. Now the question is - how exactly do you propogate your changes in the primary DB to your secondary DBs? The answer to this question, which I have given away in the title, is oplog.</p>
+<p>From <a href="https://www.mongodb.com/docs/manual/core/replica-set-oplog/">the docs</a>:</p>
+<blockquote>
+<p>The oplog (operations log) is a special capped collection that keeps a rolling record of all operations that modify the data stored in your databases. If write operations do not modify any data or fail, they do not create oplog entries.</p>
+</blockquote>
+<p>This seems rather simple - just store a list of all operations that have happened on the primary and the secondaries can just tail the oplog to update its own data. But I have some questions.</p>
+<h2 id="is-an-oplog-stored-per-collection-db-or-something-else">Is an oplog stored per collection, db or something else?</h2>
+<p>It is one per member of the replica set. If you don't know what a replica set is:</p>
+<ol>
+<li>MongoDB documents live inside a collection.</li>
+<li>Collections live inside a DB.</li>
+<li>DBs live inside a "replica set" which is just the fancy term for your primary + secondary machines.</li>
+<li>Your replica sets (only one if not sharded) live inside a cluster.</li>
+</ol>
+<p>The point to note is that each member of your replica set is one machine. So all of your "primary" data in all your collections and all your DBs is stored in one machine. The oplog is also stored in this machine. This data is then replicated in other machines (called the secondaries).</p>
+<h2 id="the-docs-say-oplog-is-a-capped-collection-what-does-it-mean">The docs say oplog is a capped collection. What does it mean?</h2>
+<p>It means the oplog is meant to of a fixed size. You can configure a maximum size, and optionally a minimum retention time. The oplog will grow past the size limit to keep that many hours. There's also another exception where the oplog can grow larger which I'll cover below.</p>
+<h1 id="change-data-capture">Change Data Capture</h1>
+<p>Let's you want to perform actions async based on writes in your db. You can always update your application code to publish a message in a kafka topic. But that leads to all sorts of consistency problems and also adds latency in your sync path which you want to avoid. What if there's way to get this functionality out of MongoDB itself?</p>
+<p>The answer is once again oplog. Apart from MongoDB using the oplog to propogate changes to secondaries, it also serves this use case. You can either directly query the oplog collection itself (which is not recommended) or you can use the change stream APIs exposed by MongoDB itself documented <a href="https://www.mongodb.com/docs/manual/changestreams/?language-no-dependencies=shell">here</a>. I will not be going into further details in this post.</p>
+<p>But I do want to talk about one more topic which I found interesting - majority commit point.</p>
+<h2 id="majority-commit-point">Majority Commit Point</h2>
+<p>Does the change stream APIs return all the data that's in the oplog of your primary? The answer is no. It only returns till something called as the majority commit point. So what this means is if a certain operation has not been copied by majority of the replica set's members, the change stream APIs will not return this operation though it's part of the primary oplog.</p>
+<p>This is the exception I was referring to when talking about capped collections. MongoDB allows the oplog collection to go above the configured size limits if majority commit point is going to be rolled over.</p>
+<p>I also find this interesting because there's a clear correlation between secondary lag and your CDC lag, which might happen in production.</p>
+<p><strong>Why does it exist?</strong></p>
+<p>It's got to do with what happens when the primary fails. When the primary fails, the secondaries have an election and whoever gets the majority votes becomes the new primary.</p>
+<p>The relevant voting rule here is that a member refuses to vote for a candidate whose oplog is behind its own. Let's say instead of majority commit point, we were willing to advance the commit point if only one secondary had syned the operation. If the primary fails and if another secondary wins the election (possible as it could votes from secondaries whose oplog is on par or behind), we now have a primary that doesn't have what was exposed in the change stream APIs which is a disaster. Having a majority solves this problem and that's the reason the change stream APIs only expose operations till this point.</p>
+
+                </section>
+            </article>
+        </main>
+    </div>
+
+
+
+            
+                
+            
+
+            
+        </div>
+
+        <div class="right-content">
+            
+    
+    
+
+        </div>
+    </body>
+
+</html>
